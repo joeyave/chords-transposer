@@ -1,4 +1,4 @@
-package chords_transposer
+package transposer
 
 import (
 	"fmt"

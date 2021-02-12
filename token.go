@@ -1,4 +1,4 @@
-package chords_transposer
+package transposer
 
 type Token struct {
 	Chord *Chord

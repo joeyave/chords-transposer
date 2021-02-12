@@ -1,4 +1,4 @@
-package chords_transposer
+package transposer
 
 const (
 	flat = iota
