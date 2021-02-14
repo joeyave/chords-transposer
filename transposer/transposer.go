@@ -25,14 +25,17 @@ func TransposeToKey(text string, fromKey string, toKey string) (string, error) {
 		return "", err
 	}
 
-	transposedTokens := transposeTokens(tokens, parsedFromKey, parsedToKey)
+	transposedLines := transposeTokens(tokens, parsedFromKey, parsedToKey)
 
 	var resultText string
-	for _, line := range transposedTokens {
+	for i, line := range transposedLines {
 		for _, token := range line {
 			resultText += token.String()
 		}
-		resultText += "\n"
+
+		if i != len(transposedLines)-1 {
+			resultText += "\n"
+		}
 	}
 	return resultText, nil
 }
