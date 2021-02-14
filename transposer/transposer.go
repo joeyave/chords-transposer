@@ -169,7 +169,7 @@ func tokenize(text string) [][]Token {
 					newLine = append(newLine, Token{Text: token})
 				}
 
-				if !isTokenEmpty {
+				if !isTokenEmpty || re.MatchString(token) == false {
 					tokenCount++
 				}
 				lastTokenWasString = true
