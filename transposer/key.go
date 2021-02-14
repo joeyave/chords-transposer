@@ -14,12 +14,6 @@ type Key struct {
 }
 
 func (k *Key) String() string {
-	if k.accidental == flat {
-		return k.majorName + "b"
-	} else if k.accidental == sharp {
-		return k.majorName + "#"
-	}
-
 	return k.majorName
 }
 
