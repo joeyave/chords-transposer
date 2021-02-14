@@ -13,6 +13,16 @@ type Key struct {
 	chromaticScale    []string
 }
 
+func (k *Key) String() string {
+	if k.accidental == flat {
+		return k.majorName + "b"
+	} else if k.accidental == sharp {
+		return k.majorName + "#"
+	}
+
+	return k.majorName
+}
+
 func (k *Key) SemitonesTo(key Key) int {
 	return key.rank - k.rank
 }
