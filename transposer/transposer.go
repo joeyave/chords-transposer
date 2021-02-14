@@ -139,7 +139,8 @@ the given threshold in order for the line to be transposed. The threshold
 is set to 0.5 by default.
 */
 func tokenize(text string) [][]Token {
-	threshold := 0.5
+	//threshold := 0.5
+	threshold := 0.2
 	lines := strings.Split(text, "\n")
 
 	newText := make([][]Token, 0)
@@ -169,7 +170,7 @@ func tokenize(text string) [][]Token {
 					newLine = append(newLine, Token{Text: token})
 				}
 
-				if !isTokenEmpty || re.MatchString(token) == false {
+				if !isTokenEmpty && re.MatchString(token) == false {
 					tokenCount++
 				}
 				lastTokenWasString = true
