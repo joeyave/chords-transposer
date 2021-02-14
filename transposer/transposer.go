@@ -149,7 +149,7 @@ func tokenize(text string) [][]Token {
 		chordCount := 0
 		tokenCount := 0
 
-		re := regexp.MustCompile("(\\s+|-)")
+		re := regexp.MustCompile("(\\s+|-|;|(->))")
 		tokens := splitAfter(line, re)
 
 		lastTokenWasString := false
