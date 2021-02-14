@@ -177,7 +177,7 @@ func tokenize(text string) [][]Token {
 			}
 		}
 
-		if tokenCount > 0 && float64(chordCount/tokenCount) < threshold {
+		if tokenCount > 0 && float64(chordCount)/float64(tokenCount) < threshold {
 			newLine = make([]Token, 0)
 			newLine = append(newLine, Token{Text: line})
 		}
