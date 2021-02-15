@@ -1,4 +1,4 @@
-module chords-transposer
+module github.com/joeyave/chords-transposer
 
 go 1.15
 
