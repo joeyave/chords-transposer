@@ -10,7 +10,7 @@ import (
 const nKeys = 12
 
 func TransposeToKey(text string, fromKey string, toKey string) (string, error) {
-	tokens := tokenize(text)
+	tokens := Tokenize(text)
 
 	parsedFromKey, err := ParseKey(fromKey)
 	if err != nil {
@@ -51,7 +51,7 @@ func TransposeDown(text string, fromKey Key, ToKey Key) (string, error) {
 }
 
 func GuessKeyFromText(text string) (Key, error) {
-	tokens := tokenize(text)
+	tokens := Tokenize(text)
 	return guessKeyFromTokens(tokens)
 }
 
@@ -83,8 +83,8 @@ func transposeTokens(tokens [][]Token, fromKey Key, toKey Key) [][]Token {
 					Bass:   transpositionMap[token.Chord.Bass],
 				}
 
-				originalChordLen := len(token.Chord.String())
-				transposedChordLen := len(transposedChord.String())
+				originalChordLen := len([]rune(token.Chord.String()))
+				transposedChordLen := len([]rune(transposedChord.String()))
 
 				if originalChordLen > transposedChordLen {
 					accumulator = append(accumulator, Token{Chord: &transposedChord})
@@ -101,8 +101,8 @@ func transposeTokens(tokens [][]Token, fromKey Key, toKey Key) [][]Token {
 				if spaceDebt > 0 {
 					re := regexp.MustCompile("\\S|$")
 					numSpaces := re.FindStringIndex(token.Text)[0]
-					spacesToTake := ix.Mins(spaceDebt, numSpaces, len(token.Text)-1)
-					truncatedToken := token.Text[spacesToTake:len(token.Text)]
+					spacesToTake := ix.Mins(spaceDebt, numSpaces, len([]rune(token.Text))-1)
+					truncatedToken := token.Text[spacesToTake:len([]rune(token.Text))]
 					accumulator = append(accumulator, Token{Text: truncatedToken})
 					spaceDebt = 0
 				} else {
@@ -138,13 +138,14 @@ The ratio of chords to non-chord tokens in each line must be greater than
 the given threshold in order for the line to be transposed. The threshold
 is set to 0.5 by default.
 */
-func tokenize(text string) [][]Token {
+func Tokenize(text string) [][]Token {
 	//threshold := 0.5
 	threshold := 0.2
 	lines := strings.Split(text, "\n")
 
 	newText := make([][]Token, 0)
 
+	var offset int64 = 0
 	for _, line := range lines {
 		newLine := make([]Token, 0)
 		chordCount := 0
@@ -160,15 +161,17 @@ func tokenize(text string) [][]Token {
 
 			if !isTokenEmpty && isChord(token) {
 				chord, _ := ParseChord(token)
-				newLine = append(newLine, Token{Chord: chord})
+				newLine = append(newLine, Token{Chord: chord, Offset: offset})
+				offset += int64(len([]rune(chord.String())))
 				chordCount++
 				lastTokenWasString = false
 			} else {
 				if lastTokenWasString {
 					newLine[len(newLine)-1].Text = newLine[len(newLine)-1].Text + token
 				} else {
-					newLine = append(newLine, Token{Text: token})
+					newLine = append(newLine, Token{Text: token, Offset: offset})
 				}
+				offset += int64(len([]rune(token)))
 
 				if !isTokenEmpty && re.MatchString(token) == false {
 					tokenCount++
@@ -179,9 +182,10 @@ func tokenize(text string) [][]Token {
 
 		if tokenCount > 0 && float64(chordCount)/float64(tokenCount) < threshold {
 			newLine = make([]Token, 0)
-			newLine = append(newLine, Token{Text: line})
+			newLine = append(newLine, Token{Text: line, Offset: offset - int64(len([]rune(line)))})
 		}
 		newText = append(newText, newLine)
+		offset++
 	}
 
 	return newText
