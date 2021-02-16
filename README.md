@@ -13,7 +13,7 @@ Written in Golang for learning purposes. Work in progress.
 Where:
 
 - `text` - text to transpose
-- `fromKey` - key of the `text`. Error will be thrown if `text` has no key. If `fromKey` could not be parsed,
+- `fromKey` - key of the `text`. Error will be returned if `text` has no key. If `fromKey` could not be parsed,
   e.g. `fromKey := ""`, key will be guessed from the `text`.
 
 ```go
