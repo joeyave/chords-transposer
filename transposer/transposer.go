@@ -102,8 +102,13 @@ func transposeTokens(tokens [][]Token, fromKey Key, toKey Key) [][]Token {
 					re := regexp.MustCompile("\\S|$")
 					numSpaces := re.FindStringIndex(token.Text)[0]
 					spacesToTake := ix.Mins(spaceDebt, numSpaces, len([]rune(token.Text))-1)
-					truncatedToken := token.Text[spacesToTake:len([]rune(token.Text))]
-					accumulator = append(accumulator, Token{Text: truncatedToken})
+
+					if spacesToTake < numSpaces {
+						truncatedToken := token.Text[spacesToTake:len([]rune(token.Text))]
+						accumulator = append(accumulator, Token{Text: truncatedToken})
+					} else {
+						accumulator = append(accumulator, Token{Text: token.Text})
+					}
 					spaceDebt = 0
 				} else {
 					if len(accumulator) > 0 && accumulator[len(accumulator)-1].Chord == nil {
@@ -151,7 +156,7 @@ func Tokenize(text string) [][]Token {
 		chordCount := 0
 		tokenCount := 0
 
-		re := regexp.MustCompile("(\\s+|-|;|(->))|\\|")
+		re := regexp.MustCompile(`(\s+|-|;|(->))|\|`)
 		tokens := splitAfter(line, re)
 
 		lastTokenWasString := false
