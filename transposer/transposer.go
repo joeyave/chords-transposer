@@ -9,8 +9,24 @@ import (
 
 const nKeys = 12
 
+var NoChordsInTextError = errors.New("text has no chords")
+
 func TransposeToKey(text string, fromKey string, toKey string) (string, error) {
 	tokens := Tokenize(text)
+
+	hasChords := false
+	for _, line := range tokens {
+		for _, token := range line {
+			if token.Chord != nil {
+				hasChords = true
+				break
+			}
+		}
+	}
+
+	if hasChords == false {
+		return "", NoChordsInTextError
+	}
 
 	parsedFromKey, err := ParseKey(fromKey)
 	if err != nil {
@@ -64,7 +80,7 @@ func guessKeyFromTokens(tokens [][]Token) (Key, error) {
 		}
 	}
 
-	return Key{}, errors.New("text has no chords")
+	return Key{}, NoChordsInTextError
 }
 
 func transposeTokens(tokens [][]Token, fromKey Key, toKey Key) [][]Token {
@@ -144,7 +160,7 @@ the given threshold in order for the line to be transposed. The threshold
 is set to 0.5 by default.
 */
 func Tokenize(text string) [][]Token {
-	//threshold := 0.5
+	// threshold := 0.5
 	threshold := 0.2
 	lines := strings.Split(text, "\n")
 
