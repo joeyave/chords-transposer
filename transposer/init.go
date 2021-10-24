@@ -27,13 +27,14 @@ var chordRanks = map[string]int{
 	"Bb": 10,
 	"Cb": 11,
 	"B":  11,
+	"H":  11,
 }
 
-const rootPattern = "(?P<root>[A-G](#|b)?)"
+const rootPattern = "(?P<root>[A-H](#|b)?)"
 const addedTonePattern = "(([/\\.\\+]|add)?\\d+[\\+-]?)"
 const triadPattern = "(M|maj|major|m|min|minor|dim|sus|dom|aug|\\+|-)"
 const minorPattern = "(m|min|minor)+"
-const bassPattern = "(\\/(?P<bass>[A-G](#|b)?))?"
+const bassPattern = "(\\/(?P<bass>[A-H](#|b)?))?"
 
 var suffixPattern = fmt.Sprintf("(?P<suffix>\\(?%s?%s*\\)?)", triadPattern, addedTonePattern)
 var minorSuffixRegex = regexp.MustCompile(fmt.Sprintf("^%s.*$", minorPattern))
