@@ -154,7 +154,9 @@ func createTranspositionMap(fromKey Key, toKey Key) map[string]string {
 	return transpositionMap
 }
 
-/* Tokenize the given text into chords.
+/*
+	Tokenize the given text into chords.
+
 The ratio of chords to non-chord tokens in each line must be greater than
 the given threshold in order for the line to be transposed. The threshold
 is set to 0.5 by default.
@@ -172,7 +174,7 @@ func Tokenize(text string) [][]Token {
 		chordCount := 0
 		tokenCount := 0
 
-		re := regexp.MustCompile(`(\s+|-|;|(->))|\|`)
+		re := regexp.MustCompile(`(\s+|-|;|(->))|\||\(|\)`)
 		tokens := splitAfter(line, re)
 
 		lastTokenWasString := false
