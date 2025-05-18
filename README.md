@@ -5,4 +5,4 @@ Go library for transposing musical chords within text. This is a Go implementati
 ## Installation
 
 ```bash
-go get github.com/user/chord-transposer-go
+go get github.com/joeyave/chord-transposer-go

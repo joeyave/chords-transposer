@@ -2,7 +2,7 @@ package keysignature
 
 import (
 	"fmt"
-	"github.com/user/chord-transposer-go/chord"
+	"github.com/joeyave/chord-transposer-go/chord"
 )
 
 // KeyType defines the type of key signature (flats or sharps)

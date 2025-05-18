@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/user/chord-transposer-go/chord"
-	"github.com/user/chord-transposer-go/keysignature"
-	"github.com/user/chord-transposer-go/transposer"
+	"github.com/joeyave/chord-transposer-go/chord"
+	"github.com/joeyave/chord-transposer-go/keysignature"
+	"github.com/joeyave/chord-transposer-go/transposer"
 )
 
 func main() {
