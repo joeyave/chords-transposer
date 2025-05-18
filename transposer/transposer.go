@@ -197,10 +197,6 @@ func Tokenize(text string) [][]Token {
 			}
 		}
 
-		if tokenCount > 0 {
-			newLine = make([]Token, 0)
-			newLine = append(newLine, Token{Text: line, Offset: offset - int64(len([]rune(line)))})
-		}
 		newText = append(newText, newLine)
 		offset++
 	}
