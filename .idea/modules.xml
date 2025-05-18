@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/chords-transposer.iml" filepath="$PROJECT_DIR$/.idea/chords-transposer.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/chord-transposer-go.iml" filepath="$PROJECT_DIR$/.idea/chord-transposer-go.iml" />
     </modules>
   </component>
 </project>
