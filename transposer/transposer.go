@@ -13,6 +13,10 @@ var NoChordsInTextError = errors.New("text has no chords")
 
 func TransposeToKey(text string, fromKey string, toKey string) (string, error) {
 	tokens := Tokenize(text)
+	return TransposeToKeyTokens(tokens, fromKey, toKey)
+}
+
+func TransposeToKeyTokens(tokens [][]Token, fromKey string, toKey string) (string, error) {
 
 	hasChords := false
 	for _, line := range tokens {
