@@ -1,7 +1,7 @@
 package keysignature
 
 import (
-	"github.com/joeyave/chord-transposer-go/chord"
+	"github.com/joeyave/chord-transposer/chord"
 	"reflect"
 	"testing"
 )

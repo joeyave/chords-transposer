@@ -1,8 +1,8 @@
 package transposer
 
 import (
-	"github.com/joeyave/chord-transposer-go/chord"
-	"github.com/joeyave/chord-transposer-go/keysignature"
+	"github.com/joeyave/chord-transposer/chord"
+	"github.com/joeyave/chord-transposer/keysignature"
 	"testing"
 )
 

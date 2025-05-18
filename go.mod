@@ -1,4 +1,4 @@
-module github.com/joeyave/chord-transposer-go
+module github.com/joeyave/chord-transposer
 
 go 1.23
 
