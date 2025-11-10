@@ -5,6 +5,8 @@ const (
 	sharp
 )
 
+const nKeys = 12
+
 type Key struct {
 	majorName         string
 	relativeMinorName string

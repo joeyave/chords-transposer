@@ -48,7 +48,7 @@ func (c *Chord) GetKey() (Key, error) {
 }
 
 func ParseChord(token string) (*Chord, error) {
-	if !isChord(token) {
+	if !IsChord(token) {
 		return nil, fmt.Errorf("%s is not a valid chord", token)
 	}
 
@@ -61,6 +61,24 @@ func ParseChord(token string) (*Chord, error) {
 	}, nil
 }
 
-func isChord(token string) bool {
+func ParseNashvilleChord(token string) (*Chord, error) {
+	if !IsNashvilleChord(token) {
+		return nil, fmt.Errorf("%s is not a valid nashville chord", token)
+	}
+
+	matches := nashvilleChordRegex.FindStringSubmatch(token)
+
+	return &Chord{
+		Root:   matches[nashvilleChordRegex.SubexpIndex("root")],
+		Suffix: matches[nashvilleChordRegex.SubexpIndex("suffix")],
+		Bass:   matches[nashvilleChordRegex.SubexpIndex("bass")],
+	}, nil
+}
+
+func IsChord(token string) bool {
 	return chordRegex.MatchString(token)
+}
+
+func IsNashvilleChord(token string) bool {
+	return nashvilleChordRegex.MatchString(token)
 }

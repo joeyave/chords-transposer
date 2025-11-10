@@ -2,18 +2,38 @@ package transposer
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 
 	"github.com/adam-lavrik/go-imath/ix"
 )
 
-const nKeys = 12
+var ErrNoChordsInText = errors.New("text has no chords")
 
-var NoChordsInTextError = errors.New("text has no chords")
+const defaultDelimPattern = `(?:\s|[^\p{L}\p{N}#/])+`
 
-func TransposeToKey(text string, fromKey string, toKey string) (string, error) {
-	tokens := Tokenize(text)
+var defaultDelimRe = regexp.MustCompile(defaultDelimPattern)
+
+var sharpIntervalToNashville = map[int]string{
+	0: "1", 1: "#1", 2: "2", 3: "#2", 4: "3", 5: "4", 6: "#4", 7: "5", 8: "#5", 9: "6", 10: "#6", 11: "7",
+}
+var flatIntervalToNashville = map[int]string{
+	0: "1", 1: "b2", 2: "2", 3: "b3", 4: "3", 5: "4", 6: "b5", 7: "5", 8: "b6", 9: "6", 10: "b7", 11: "7",
+}
+
+type TransposeOpts struct {
+	DelimSymbols        []string
+	ChordRatioThreshold float64
+}
+
+func TransposeToKey(text string, fromKey string, toKey string, opts ...*TransposeOpts) (string, error) {
+	var opt TransposeOpts
+	if len(opts) > 0 && opts[0] != nil {
+		opt = *opts[0]
+	}
+
+	tokens := tokenize(text, true, false, buildDelimRe(opt.DelimSymbols), opt.ChordRatioThreshold)
 	return TransposeToKeyTokens(tokens, fromKey, toKey)
 }
 
@@ -29,9 +49,11 @@ func TransposeToKeyTokens(tokens [][]Token, fromKey string, toKey string) (strin
 		}
 	}
 
-	if hasChords == false {
-		return "", NoChordsInTextError
+	if !hasChords {
+		return "", ErrNoChordsInText
 	}
+
+	var transposedLines [][]Token
 
 	parsedFromKey, err := ParseKey(fromKey)
 	if err != nil {
@@ -45,8 +67,8 @@ func TransposeToKeyTokens(tokens [][]Token, fromKey string, toKey string) (strin
 	if err != nil {
 		return "", err
 	}
-
-	transposedLines := transposeTokens(tokens, parsedFromKey, parsedToKey)
+	transpositionMap := createTranspositionMap(parsedFromKey, parsedToKey)
+	transposedLines = transposeTokens(tokens, transpositionMap)
 
 	var resultText string
 	for i, line := range transposedLines {
@@ -61,20 +83,148 @@ func TransposeToKeyTokens(tokens [][]Token, fromKey string, toKey string) (strin
 	return resultText, nil
 }
 
-// TODO
-func TransposeUp(text string, fromKey Key, ToKey Key) (string, error) {
-	return "", nil
+func TransposeToNashville(text string, fromKey string, opts ...*TransposeOpts) (string, error) {
+	var opt TransposeOpts
+	if len(opts) > 0 && opts[0] != nil {
+		opt = *opts[0]
+	}
+
+	tokens := tokenize(text, true, false, buildDelimRe(opt.DelimSymbols), opt.ChordRatioThreshold)
+	return TransposeToNashvilleTokens(tokens, fromKey)
 }
 
-// TODO
-func TransposeDown(text string, fromKey Key, ToKey Key) (string, error) {
-	return "", nil
+func TransposeToNashvilleTokens(tokens [][]Token, fromKey string) (string, error) {
+
+	hasChords := false
+	for _, line := range tokens {
+		for _, token := range line {
+			if token.Chord != nil {
+				hasChords = true
+				break
+			}
+		}
+	}
+
+	if !hasChords {
+		return "", ErrNoChordsInText
+	}
+
+	var transposedLines [][]Token
+
+	parsedFromKey, err := ParseKey(fromKey)
+	if err != nil {
+		parsedFromKey, err = guessKeyFromTokens(tokens)
+		if err != nil {
+			return "", err
+		}
+	}
+	nashvilleMap := createNashvilleMap(parsedFromKey)
+	transposedLines = transposeTokens(tokens, nashvilleMap)
+
+	var resultText string
+	for i, line := range transposedLines {
+		for _, token := range line {
+			resultText += token.String()
+		}
+
+		if i != len(transposedLines)-1 {
+			resultText += "\n"
+		}
+	}
+	return resultText, nil
 }
 
-func GuessKeyFromText(text string) (Key, error) {
-	tokens := Tokenize(text)
+func TransposeFromNashville(text string, toKey string, opts ...*TransposeOpts) (string, error) {
+	var opt TransposeOpts
+	if len(opts) > 0 && opts[0] != nil {
+		opt = *opts[0]
+	}
+
+	tokens := tokenize(text, false, true, buildDelimRe(opt.DelimSymbols), opt.ChordRatioThreshold)
+	return TransposeFromNashvilleTokens(tokens, toKey)
+}
+
+func TransposeFromNashvilleTokens(tokens [][]Token, toKey string) (string, error) {
+
+	hasChords := false
+	for _, line := range tokens {
+		for _, token := range line {
+			if token.Chord != nil {
+				hasChords = true
+				break
+			}
+		}
+	}
+
+	if !hasChords {
+		return "", ErrNoChordsInText
+	}
+
+	var transposedLines [][]Token
+
+	parsedToKey, err := ParseKey(toKey)
+	if err != nil {
+		return "", fmt.Errorf("a valid key must be provided to transpose from Nashville system: %w", err)
+	}
+	chordMap := createChordMap(parsedToKey)
+	transposedLines = transposeTokens(tokens, chordMap)
+
+	var resultText string
+	for i, line := range transposedLines {
+		for _, token := range line {
+			resultText += token.String()
+		}
+
+		if i != len(transposedLines)-1 {
+			resultText += "\n"
+		}
+	}
+	return resultText, nil
+}
+
+func GuessKeyFromText(text string, opts ...*TransposeOpts) (Key, error) {
+	var opt TransposeOpts
+	if len(opts) > 0 && opts[0] != nil {
+		opt = *opts[0]
+	}
+
+	tokens := tokenize(text, true, false, buildDelimRe(opt.DelimSymbols), opt.ChordRatioThreshold)
 	return guessKeyFromTokens(tokens)
 }
+
+func Tokenize(text string, parseDefault, parseNashville bool, opts ...*TransposeOpts) [][]Token {
+	var opt TransposeOpts
+	if len(opts) > 0 && opts[0] != nil {
+		opt = *opts[0]
+	}
+
+	return tokenize(text, parseDefault, parseNashville, buildDelimRe(opt.DelimSymbols), opt.ChordRatioThreshold)
+}
+
+func buildDelimRe(symbols []string) *regexp.Regexp {
+	if len(symbols) == 0 {
+		return defaultDelimRe
+	}
+
+	parts := make([]string, 0, len(symbols)+1)
+	parts = append(parts, `\s+`)
+
+	for _, s := range symbols {
+		parts = append(parts, regexp.QuoteMeta(s))
+	}
+	pattern := "(" + strings.Join(parts, "|") + ")"
+	return regexp.MustCompile(pattern)
+}
+
+//// TODO
+//func TransposeUp(text string, fromKey Key, ToKey Key) (string, error) {
+//	return "", nil
+//}
+//
+//// TODO
+//func TransposeDown(text string, fromKey Key, ToKey Key) (string, error) {
+//	return "", nil
+//}
 
 func guessKeyFromTokens(tokens [][]Token) (Key, error) {
 	for _, line := range tokens {
@@ -85,11 +235,10 @@ func guessKeyFromTokens(tokens [][]Token) (Key, error) {
 		}
 	}
 
-	return Key{}, NoChordsInTextError
+	return Key{}, ErrNoChordsInText
 }
 
-func transposeTokens(tokens [][]Token, fromKey Key, toKey Key) [][]Token {
-	transpositionMap := createTranspositionMap(fromKey, toKey)
+func transposeTokens(tokens [][]Token, transpositionMap map[string]string) [][]Token {
 	result := make([][]Token, 0)
 
 	for _, line := range tokens {
@@ -97,7 +246,7 @@ func transposeTokens(tokens [][]Token, fromKey Key, toKey Key) [][]Token {
 		spaceDebt := 0
 
 		for i, token := range line {
-			if token.Chord != nil {
+			if token.Chord != nil && transpositionMap[token.Chord.Root] != "" {
 				transposedChord := Chord{
 					Root:   transpositionMap[token.Chord.Root],
 					Suffix: token.Chord.Suffix,
@@ -120,7 +269,7 @@ func transposeTokens(tokens [][]Token, fromKey Key, toKey Key) [][]Token {
 				}
 			} else {
 				if spaceDebt > 0 {
-					re := regexp.MustCompile("\\S|$")
+					re := regexp.MustCompile(`\S|$`)
 					numSpaces := re.FindStringIndex(token.Text)[0]
 					spacesToTake := ix.Mins(spaceDebt, numSpaces, len([]rune(token.Text))-1)
 
@@ -159,45 +308,98 @@ func createTranspositionMap(fromKey Key, toKey Key) map[string]string {
 	return transpositionMap
 }
 
-/*
-Tokenize the given text into chords.
-*/
-func Tokenize(text string) [][]Token {
-	lines := strings.Split(text, "\n")
+func createNashvilleMap(fromKey Key) map[string]string {
+	nashvilleMap := make(map[string]string)
+	var intervalMap map[int]string
+	if fromKey.accidental == sharp {
+		intervalMap = sharpIntervalToNashville
+	} else {
+		intervalMap = flatIntervalToNashville
+	}
 
+	for chordRoot, rank := range chordRanks {
+		interval := (rank - fromKey.rank + nKeys) % nKeys
+		nashvilleMap[chordRoot] = intervalMap[interval]
+	}
+
+	return nashvilleMap
+}
+
+func createChordMap(toKey Key) map[string]string {
+	chordMap := make(map[string]string)
+
+	// For each semitone interval from the target key, compute the absolute chord root once,
+	// then register BOTH Nashville spellings (sharp-form and flat-form) to that same root.
+	for interval := 0; interval < nKeys; interval++ {
+		noteRank := (toKey.rank + interval) % nKeys
+		chordRoot := toKey.chromaticScale[noteRank]
+
+		if nashSharp, ok := sharpIntervalToNashville[interval]; ok {
+			chordMap[nashSharp] = chordRoot
+		}
+		if nashFlat, ok := flatIntervalToNashville[interval]; ok {
+			chordMap[nashFlat] = chordRoot
+		}
+	}
+
+	return chordMap
+}
+
+func tokenize(text string, parseDefault, parseNashville bool, delimRe *regexp.Regexp, chordRatioThreshold float64) [][]Token {
+	lines := strings.Split(text, "\n")
 	newText := make([][]Token, 0)
 
 	var offset int64 = 0
 	for _, line := range lines {
 		newLine := make([]Token, 0)
-		chordCount := 0
-		tokenCount := 0
 
-		re := regexp.MustCompile(`(\s+|-|;|(->))|\||\(|\)`)
-		tokens := splitAfter(line, re)
+		tokens := splitAfter(line, delimRe)
+
+		// --- считаем долю аккордов во всей строке ---
+		var chordCount, totalCount int
+		for _, t := range tokens {
+			s := strings.TrimSpace(t)
+			if s == "" {
+				continue
+			}
+			if delimRe != nil && delimRe.MatchString(s) {
+				continue
+			}
+			totalCount++
+			if (parseDefault && IsChord(t)) || (parseNashville && IsNashvilleChord(t)) {
+				chordCount++
+			}
+		}
+		isChordLine := chordCount > 0 && float64(chordCount)/float64(totalCount) >= chordRatioThreshold
 
 		lastTokenWasString := false
-
 		for _, token := range tokens {
 			isTokenEmpty := strings.TrimSpace(token) == ""
 
-			if !isTokenEmpty && isChord(token) {
-				chord, _ := ParseChord(token)
-				newLine = append(newLine, Token{Chord: chord, Offset: offset})
+			var chord *Chord
+			if isChordLine && !isTokenEmpty {
+				if parseDefault && IsChord(token) {
+					chord, _ = ParseChord(token)
+				} else if parseNashville && IsNashvilleChord(token) {
+					chord, _ = ParseNashvilleChord(token)
+				}
+			}
+
+			if chord != nil {
+				newLine = append(newLine, Token{
+					Chord:  chord,
+					Offset: offset,
+					Text:   token,
+				})
 				offset += int64(len([]rune(chord.String())))
-				chordCount++
 				lastTokenWasString = false
 			} else {
 				if lastTokenWasString {
-					newLine[len(newLine)-1].Text = newLine[len(newLine)-1].Text + token
+					newLine[len(newLine)-1].Text += token
 				} else {
 					newLine = append(newLine, Token{Text: token, Offset: offset})
 				}
 				offset += int64(len([]rune(token)))
-
-				if !isTokenEmpty && re.MatchString(token) == false {
-					tokenCount++
-				}
 				lastTokenWasString = true
 			}
 		}

@@ -44,14 +44,22 @@ var chordRanks = map[string]int{
 }
 
 const rootPattern = "(?P<root>[A-HСЕАВН](#|b)?)"
-const addedTonePattern = "(([/\\.\\+]|add)?\\d+[\\+-]?)"
+const addedTonePattern = "(([/\\.\\+]|add)?([b#])?\\d+[\\+-]?)"
 const triadPattern = "(M|maj|major|m|min|minor|dim|sus|dom|aug|\\+|-)"
 const minorPattern = "(m|min|minor)+"
 const bassPattern = "(\\/(?P<bass>[A-HСЕАВН](#|b)?))?"
 
 var suffixPattern = fmt.Sprintf("(?P<suffix>\\(?%s?%s*\\)?)", triadPattern, addedTonePattern)
 var minorSuffixRegex = regexp.MustCompile(fmt.Sprintf("^%s.*$", minorPattern))
+
 var chordRegex = regexp.MustCompile(fmt.Sprintf("^%s%s%s$", rootPattern, suffixPattern, bassPattern))
+
+const nashvilleRootPattern = "(?P<root>(b|#)?[1-7])"
+const nashvilleBassPattern = "(\\/(?P<bass>(b|#)?[1-7]))?"
+const nashvilleAddedTonePattern = "(([\\.\\+]|add)?([b#])?\\d+[\\+-]?)"
+
+var nashvilleSuffixPattern = fmt.Sprintf("(?P<suffix>\\(?%s?%s*\\)?)", triadPattern, nashvilleAddedTonePattern)
+var nashvilleChordRegex = regexp.MustCompile(fmt.Sprintf("^%s%s%s$", nashvilleRootPattern, nashvilleSuffixPattern, nashvilleBassPattern))
 
 var sharpScale = []string{"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"}
 var fSharpScale = []string{"C", "C#", "D", "D#", "E", "E#", "F#", "G", "G#", "A", "A#", "B"}
