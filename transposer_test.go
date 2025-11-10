@@ -1,8 +1,9 @@
 package chords_transposer
 
 import (
-	"github.com/joeyave/chords-transposer/transposer"
 	"testing"
+
+	"github.com/joeyave/chords-transposer/transposer"
 )
 
 func TestTransposer(t *testing.T) {

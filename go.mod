@@ -4,7 +4,7 @@ go 1.23
 
 require (
 	github.com/adam-lavrik/go-imath v0.0.0-20210910152346-265a42a96f0b
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 )
 
 require (

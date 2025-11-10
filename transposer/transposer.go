@@ -2,9 +2,10 @@ package transposer
 
 import (
 	"errors"
-	"github.com/adam-lavrik/go-imath/ix"
 	"regexp"
 	"strings"
+
+	"github.com/adam-lavrik/go-imath/ix"
 )
 
 const nKeys = 12
