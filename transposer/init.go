@@ -50,7 +50,7 @@ const minorPattern = "(m|min|minor)+"
 const bassPattern = "(\\/(?P<bass>[A-HСЕАВН](#|b)?))?"
 
 var suffixPattern = fmt.Sprintf("(?P<suffix>\\(?%s?%s*\\)?)", triadPattern, addedTonePattern)
-var minorSuffixRegex = regexp.MustCompile(fmt.Sprintf("^%s.*$", minorPattern))
+var minorSuffixRegex = regexp.MustCompile(fmt.Sprintf("^(%s)", minorPattern))
 
 var chordRegex = regexp.MustCompile(fmt.Sprintf("^%s%s%s$", rootPattern, suffixPattern, bassPattern))
 

@@ -23,6 +23,10 @@ func (c *Chord) IsMinor() bool {
 	return minorSuffixRegex.MatchString(c.Suffix)
 }
 
+func (c *Chord) MinorSuffix() string {
+	return minorSuffixRegex.FindString(c.Suffix)
+}
+
 func (c *Chord) GetKey() (Key, error) {
 	var keyName string
 	if c.IsMinor() {
