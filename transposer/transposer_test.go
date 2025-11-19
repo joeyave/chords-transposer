@@ -237,6 +237,144 @@ func TestParseChord_Invalid(t *testing.T) {
 	}
 }
 
+func TestChord_IsMinor_AndMinorSuffix(t *testing.T) {
+	cases := []struct {
+		in         string
+		wantMinor  bool
+		wantSuffix string
+	}{
+		{"C", false, ""},
+		{"G", false, ""},
+		{"Am", true, "m"},
+		{"Am7", true, "m"},
+		{"F#m9", true, "m"},
+		{"Gm/Bb", true, "m"},
+		{"Amaj7", false, ""},
+		{"Amaj9", false, ""},
+		{"G7", false, ""},
+		{"Amin", true, "min"},
+		{"Aminor", true, "minor"},
+		{"Hm", true, "m"},
+		{"Bm7b5", true, "m"},
+		{"Cdim", false, ""},
+		{"Cm", true, "m"},
+		{"Cm/Eb", true, "m"},
+		{"C#madd9", true, "m"},
+		{"C#min7", true, "min"},
+		{"C#minor/G#", true, "minor"},
+		{"Esus4", false, ""},
+		{"Eadd9", false, ""},
+		{"Edim7", false, ""},
+		{"Eaug", false, ""},
+	}
+
+	for _, tc := range cases {
+		ch, err := ParseChord(tc.in)
+		if assert.NoError(t, err, "ParseChord(%q) error", tc.in) && assert.NotNil(t, ch) {
+			assert.Equalf(t, tc.wantMinor, ch.IsMinor(), "IsMinor mismatch for %q", tc.in)
+			assert.Equalf(t, tc.wantSuffix, ch.MinorSuffix(), "MinorSuffix mismatch for %q", tc.in)
+		}
+	}
+}
+
+func TestChord_IsMinor_AndMinorSuffix2(t *testing.T) {
+	cases := []struct {
+		name       string
+		in         string
+		wantMinor  bool
+		wantSuffix string
+	}{
+		// --- 1. Plain majors / non-minors ---
+		{"Major_C", "C", false, ""},
+		{"Major_G", "G", false, ""},
+		{"Dominant_G7", "G7", false, ""},
+		{"Major_M_suffix", "CM", false, ""},    // triad "M"
+		{"Major_M7_suffix", "F#M7", false, ""}, // triad "M" + 7
+		{"MajorDim_Cdim", "Cdim", false, ""},
+		{"MajorDim_Edim7", "Edim7", false, ""},
+		{"MajorSus_Esus4", "Esus4", false, ""},
+		{"MajorAdd_Eadd9", "Eadd9", false, ""},
+		{"MajorAug_Eaug", "Eaug", false, ""},
+
+		// --- 2. Minor via 'm' ---
+		{"Minor_m_Am", "Am", true, "m"},
+		{"Minor_m_Am7", "Am7", true, "m"},
+		{"Minor_m_Am9", "Am9", true, "m"},
+		{"Minor_m_Am11", "Am11", true, "m"},
+		{"Minor_m_Am13", "Am13", true, "m"},
+		{"Minor_m_Am6", "Am6", true, "m"},
+		{"Minor_m_F#m9", "F#m9", true, "m"},
+		{"Minor_m_Bm7b5", "Bm7b5", true, "m"}, // minor-based half-diminished
+		{"Minor_m_Cm", "Cm", true, "m"},
+		{"Minor_m_Cm_Slash", "Cm/Eb", true, "m"},
+		{"Minor_m_C#madd9", "C#madd9", true, "m"},
+		{"Minor_m_Gm_Slash", "Gm/Bb", true, "m"},
+		{"Minor_m_Hm", "Hm", true, "m"}, // German H minor
+		{"Minor_m_Abm", "Abm", true, "m"},
+		{"Minor_m_BbmSlash", "Bbm/F", true, "m"},
+		{"Minor_m_AmSlash", "Am/C", true, "m"},
+		{"Minor_m_Am7Slash", "Am7/G", true, "m"},
+
+		// --- 3. Minor via 'min' ---
+		{"Minor_min_Amin", "Amin", true, "min"},
+		{"Minor_min_Amin7", "Amin7", true, "min"},
+		{"Minor_min_Amin9", "Amin9", true, "min"},
+		{"Minor_min_Amin11", "Amin11", true, "min"},
+		{"Minor_min_C#min7", "C#min7", true, "min"},
+		{"Minor_min_Bbmin7", "Bbmin7", true, "min"},
+
+		// --- 4. Minor via 'minor' ---
+		{"Minor_minor_Aminor", "Aminor", true, "minor"},
+		{"Minor_minor_Aminor7", "Aminor7", true, "minor"},
+		{"Minor_minor_Aminor9", "Aminor9", true, "minor"},
+		{"Minor_minor_Aminor11", "Aminor11", true, "minor"},
+		{"Minor_minor_C#minorSlash", "C#minor/G#", true, "minor"},
+		{"Minor_minor_Dbminor", "Dbminor", true, "minor"},
+
+		// --- 5. Mixed / already-present ones (keep them) ---
+		{"Minor_m_C#m9", "F#m9", true, "m"},
+		{"NonMinor_G7_dup", "G7", false, ""},
+		{"Minor_min_C#min7_dup", "C#min7", true, "min"},
+		{"Minor_minor_C#minorSlash_dup", "C#minor/G#", true, "minor"},
+
+		// --- 6. Maj / Major that MUST NOT be minor ---
+		{"Maj_Amaj", "Amaj", false, ""},
+		{"Maj_Amaj7", "Amaj7", false, ""},
+		{"Maj_Amaj9", "Amaj9", false, ""},
+		{"Maj_Amajadd9", "Amajadd9", false, ""},
+		{"Major_Amajor", "Amajor", false, ""},
+		{"Major_Amajor7", "Amajor7", false, ""},
+		{"Major_Amajor9", "Amajor9", false, ""},
+
+		// --- 7. Other qualities that start with 'm' but aren't spelled m/min/minor ---
+		// TriadPattern DOES allow '-' to mean minor, but by current spec we only treat m|min|minor as "minor".
+		{"NotMinor_Dash_A-", "A-", false, ""},
+		{"NotMinor_Dash_A-7", "A-7", false, ""},
+
+		// --- 8. Explicitly re-test things around your current failures / fixes ---
+		{"Regression_C#madd9", "C#madd9", true, "m"},
+		{"Regression_Amaj9", "Amaj9", false, ""},
+		{"Regression_Amaj7", "Amaj7", false, ""},
+
+		// --- 9. Misc non-minor chord types for safety ---
+		{"NonMinor_Dom9", "D9", false, ""},
+		{"NonMinor_Dom13", "B13", false, ""},
+		{"NonMinor_Sus_Dsus4", "Dsus4", false, ""},
+		{"NonMinor_Sus_Esus2", "Esus2", false, ""},
+		{"NonMinor_Add_Cadd9", "Cadd9", false, ""},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ch, err := ParseChord(tc.in)
+			if assert.NoError(t, err, "ParseChord(%q) error", tc.in) && assert.NotNil(t, ch) {
+				assert.Equalf(t, tc.wantMinor, ch.IsMinor(), "IsMinor mismatch for %q", tc.in)
+				assert.Equalf(t, tc.wantSuffix, ch.MinorSuffix(), "MinorSuffix mismatch for %q", tc.in)
+			}
+		})
+	}
+}
+
 func TestParseNashvilleChord(t *testing.T) {
 	cases := []string{
 		"1", "4", "5/7", "6m", "2dim", "3m7", "4sus2", "b7", "#4", "1add9", "5/3",

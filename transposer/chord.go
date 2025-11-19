@@ -3,6 +3,7 @@ package transposer
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 type Chord struct {
@@ -20,11 +21,20 @@ func (c *Chord) String() string {
 }
 
 func (c *Chord) IsMinor() bool {
-	return minorSuffixRegex.MatchString(c.Suffix)
+	return c.MinorSuffix() != ""
 }
 
 func (c *Chord) MinorSuffix() string {
-	return minorSuffixRegex.FindString(c.Suffix)
+	matches := minorSuffixRegex.FindStringSubmatch(c.Suffix)
+	if len(matches) == 0 {
+		return ""
+	}
+	minor := matches[minorSuffixRegex.SubexpIndex("minor")]
+	// Reject maj/major
+	if strings.HasPrefix(c.Suffix, "maj") || strings.HasPrefix(c.Suffix, "major") {
+		return ""
+	}
+	return minor
 }
 
 func (c *Chord) GetKey() (Key, error) {
