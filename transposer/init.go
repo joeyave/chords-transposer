@@ -45,7 +45,7 @@ var chordRanks = map[string]int{
 
 const (
 	rootPattern      = `(?P<root>[A-HСЕАВН](#|b)?)`
-	addedTonePattern = `(([/\.\+]|add)?([b#])?\d+[\+-]?)`
+	addedTonePattern = `(([/\.\+]|add)?(([b#])?\d+|sus\d*|aug)[\+-]?)`
 	triadPattern     = `(M|maj|major|m|min|minor|dim|sus|dom|aug|\+|-)`
 	bassPattern      = `(\/(?P<bass>[A-HСЕАВН](#|b)?))?`
 )
@@ -60,7 +60,7 @@ var (
 const (
 	nashvilleRootPattern      = `(?P<root>(b|#)?[1-7])`
 	nashvilleBassPattern      = `(\/(?P<bass>(b|#)?[1-7]))?`
-	nashvilleAddedTonePattern = `(([\.\+]|add)?([b#])?\d+[\+-]?)`
+	nashvilleAddedTonePattern = `(([\.\+]|add)?(([b#])?\d+|sus\d*|aug)[\+-]?)`
 )
 
 var nashvilleSuffixPattern = fmt.Sprintf(`(?P<suffix>\(?%s?%s*\)?)`, triadPattern, nashvilleAddedTonePattern)
