@@ -43,23 +43,28 @@ var chordRanks = map[string]int{
 	"В":  11, // Cyrillic.
 }
 
-const rootPattern = "(?P<root>[A-HСЕАВН](#|b)?)"
-const addedTonePattern = "(([/\\.\\+]|add)?([b#])?\\d+[\\+-]?)"
-const triadPattern = "(M|maj|major|m|min|minor|dim|sus|dom|aug|\\+|-)"
-const minorPattern = "(minor|min|m)"
-const bassPattern = "(\\/(?P<bass>[A-HСЕАВН](#|b)?))?"
+const (
+	rootPattern      = `(?P<root>[A-HСЕАВН](#|b)?)`
+	addedTonePattern = `(([/\.\+]|add)?([b#])?\d+[\+-]?)`
+	triadPattern     = `(M|maj|major|m|min|minor|dim|sus|dom|aug|\+|-)`
+	bassPattern      = `(\/(?P<bass>[A-HСЕАВН](#|b)?))?`
+)
 
-var suffixPattern = fmt.Sprintf("(?P<suffix>\\(?%s?%s*\\)?)", triadPattern, addedTonePattern)
 var minorSuffixRegex = regexp.MustCompile(`^(?P<minor>minor|min|m)`)
 
-var chordRegex = regexp.MustCompile(fmt.Sprintf("^%s%s%s$", rootPattern, suffixPattern, bassPattern))
+var (
+	suffixPattern = fmt.Sprintf(`(?P<suffix>\(?%s?%s*\)?)`, triadPattern, addedTonePattern)
+	chordRegex    = regexp.MustCompile(fmt.Sprintf(`^%s%s%s$`, rootPattern, suffixPattern, bassPattern))
+)
 
-const nashvilleRootPattern = "(?P<root>(b|#)?[1-7])"
-const nashvilleBassPattern = "(\\/(?P<bass>(b|#)?[1-7]))?"
-const nashvilleAddedTonePattern = "(([\\.\\+]|add)?([b#])?\\d+[\\+-]?)"
+const (
+	nashvilleRootPattern      = `(?P<root>(b|#)?[1-7])`
+	nashvilleBassPattern      = `(\/(?P<bass>(b|#)?[1-7]))?`
+	nashvilleAddedTonePattern = `(([\.\+]|add)?([b#])?\d+[\+-]?)`
+)
 
-var nashvilleSuffixPattern = fmt.Sprintf("(?P<suffix>\\(?%s?%s*\\)?)", triadPattern, nashvilleAddedTonePattern)
-var nashvilleChordRegex = regexp.MustCompile(fmt.Sprintf("^%s%s%s$", nashvilleRootPattern, nashvilleSuffixPattern, nashvilleBassPattern))
+var nashvilleSuffixPattern = fmt.Sprintf(`(?P<suffix>\(?%s?%s*\)?)`, triadPattern, nashvilleAddedTonePattern)
+var nashvilleChordRegex = regexp.MustCompile(fmt.Sprintf(`^%s%s%s$`, nashvilleRootPattern, nashvilleSuffixPattern, nashvilleBassPattern))
 
 var sharpScale = []string{"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"}
 var fSharpScale = []string{"C", "C#", "D", "D#", "E", "E#", "F#", "G", "G#", "A", "A#", "B"}
