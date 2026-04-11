@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var nashvilleSystem = "nashvilleSystem"
@@ -389,6 +390,31 @@ func TestParseNashvilleChord(t *testing.T) {
 		ch, err := ParseNashvilleChord(in)
 		assert.Error(t, err, in)
 		assert.Nil(t, ch)
+	}
+}
+
+func TestParseNashvilleChord_NormalizesAliasAccidentals(t *testing.T) {
+	cases := []struct {
+		in       string
+		wantRoot string
+		wantBass string
+	}{
+		{"#1", "b2", ""},
+		{"#2m7", "b3", ""},
+		{"b5dim", "#4", ""},
+		{"#5/7", "b6", "7"},
+		{"4/#1", "4", "b2"},
+		{"#6sus4/#5", "b7", "b6"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.in, func(t *testing.T) {
+			ch, err := ParseNashvilleChord(tc.in)
+			if assert.NoError(t, err) && assert.NotNil(t, ch) {
+				assert.Equal(t, tc.wantRoot, ch.Root)
+				assert.Equal(t, tc.wantBass, ch.Bass)
+			}
+		})
 	}
 }
 
@@ -775,6 +801,15 @@ func TestSingleChord_Nashville_WithSuffixAndBass(t *testing.T) {
 	assert.Equal(t, "Eadd9/B", transposeOne(t, "3add9/7", nashvilleSystem, "C"))
 }
 
+func TestSingleChord_FromNashville_NormalizesAliasAccidentals(t *testing.T) {
+	assert.Equal(t, "C#", transposeOne(t, "#1", nashvilleSystem, "C"))
+	assert.Equal(t, "D#", transposeOne(t, "#2", nashvilleSystem, "C"))
+	assert.Equal(t, "F#", transposeOne(t, "b5", nashvilleSystem, "C"))
+	assert.Equal(t, "G#", transposeOne(t, "#5", nashvilleSystem, "C"))
+	assert.Equal(t, "A#", transposeOne(t, "#6", nashvilleSystem, "C"))
+	assert.Equal(t, "F/G#", transposeOne(t, "4/#5", nashvilleSystem, "C"))
+}
+
 func TestSingleChord_GermanLetter_WithinKeyContext(t *testing.T) {
 	// "H" (German B natural) inside E-major context transposed to C should become "G"
 	got := transposeOne(t, "H", "E", "C")
@@ -937,9 +972,7 @@ func TestChordRatioThreshold_Basics(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			lines := Tokenize(tt.text, tt.parseDef, tt.parseNNS, &TransposeOpts{
-				ChordRatioThreshold: tt.threshold,
-			})
+			lines := Tokenize(tt.text, tt.parseDef, tt.parseNNS, WithChordRatioThreshold(tt.threshold))
 			if len(lines) != len(tt.wantChords) {
 				t.Fatalf("got %d lines, want %d", len(lines), len(tt.wantChords))
 			}
@@ -981,9 +1014,7 @@ func TestChordRatioThreshold_EdgeValues(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			lines := Tokenize(tt.text, true, true, &TransposeOpts{
-				ChordRatioThreshold: tt.threshold,
-			})
+			lines := Tokenize(tt.text, true, true, WithChordRatioThreshold(tt.threshold))
 
 			if got := countChordsInLine(lines, 0); got != tt.wantLine0 {
 				t.Errorf("got %d chords, want %d", got, tt.wantLine0)
@@ -998,9 +1029,7 @@ func TestChordRatioThreshold_OffsetsRemainConsistent(t *testing.T) {
 
 	for _, threshold := range []float64{0.0, 0.5, 1.0} {
 		t.Run(regexp.QuoteMeta("threshold="+strconvFmt(threshold)), func(t *testing.T) {
-			lines := Tokenize(text, true, true, &TransposeOpts{
-				ChordRatioThreshold: threshold,
-			})
+			lines := Tokenize(text, true, true, WithChordRatioThreshold(threshold))
 
 			var prev int64 = -1
 			for li := range lines {
@@ -1023,4 +1052,305 @@ func strconvFmt(f float64) string {
 	// упрощённая запись без зависимости от локали
 	s := strconv.FormatFloat(f, 'f', -1, 64)
 	return s
+}
+func TestTransposeToKey_LogicalCorrectness(t *testing.T) {
+	tests := []struct {
+		name     string
+		text     string
+		fromKey  string
+		toKey    string
+		expected string
+	}{
+		{
+			name:     "C Major to D Major - Simple",
+			text:     "C G Am F",
+			fromKey:  "C",
+			toKey:    "D",
+			expected: "D A Bm G",
+		},
+		{
+			name:     "E Major to G Major - Up 3 semitones",
+			text:     "E B C#m A",
+			fromKey:  "E",
+			toKey:    "G",
+			expected: "G D Em  C",
+		},
+		{
+			name:     "F Major to Bb Major - Flat scale preservation",
+			text:     "F C Dm Bb",
+			fromKey:  "F",
+			toKey:    "Bb",
+			expected: "Bb F Gm Eb",
+		},
+		{
+			name:     "G Major to F# Major - Sharp scale preservation",
+			text:     "G D Em C",
+			fromKey:  "G",
+			toKey:    "F#",
+			expected: "F# C# D#m B",
+		},
+		{
+			name:     "Enharmonic Transposition: C# to Db",
+			text:     "C# F# G#",
+			fromKey:  "C#",
+			toKey:    "Db",
+			expected: "Db Gb Ab",
+		},
+		{
+			name:     "Minor Key Transposition: Am to Bm",
+			text:     "Am F C G",
+			fromKey:  "Am",
+			toKey:    "Bm",
+			expected: "Bm G D A",
+		},
+		{
+			name:     "Complex Chords: Cmaj7 to Dmaj7",
+			text:     "Cmaj7 Am7 Dm7 G7",
+			fromKey:  "C",
+			toKey:    "D",
+			expected: "Dmaj7 Bm7 Em7 A7",
+		},
+		{
+			name:     "Chords with Bass Notes: C/E to D/F#",
+			text:     "C/E G/D Am/C F/A",
+			fromKey:  "C",
+			toKey:    "D",
+			expected: "D/F# A/E Bm/D G/B",
+		},
+		{
+			name:     "German Notation (H): H to C",
+			text:     "H F# G#m E",
+			fromKey:  "B",
+			toKey:    "C",
+			expected: "C G  Am  F",
+		},
+		{
+			name:     "Cyrillic Support: С (Cyrillic) to D",
+			text:     "С G Am F", // С is Cyrillic
+			fromKey:  "C",
+			toKey:    "D",
+			expected: "D A Bm G",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := TransposeToKey(tt.text, tt.fromKey, tt.toKey)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, got)
+		})
+	}
+}
+
+func TestTransposeNashville_LogicalCorrectness(t *testing.T) {
+	t.Run("To Nashville", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			text     string
+			fromKey  string
+			expected string
+		}{
+			{
+				name:     "C Major to Nashville",
+				text:     "C G Am F",
+				fromKey:  "C",
+				expected: "1 5 6m 4",
+			},
+			{
+				name:     "D Major to Nashville",
+				text:     "D A Bm G",
+				fromKey:  "D",
+				expected: "1 5 6m 4",
+			},
+			{
+				name:     "Nashville Accidentals: Bb in C is b7",
+				text:     "C F Bb F",
+				fromKey:  "C",
+				expected: "1 4 b7 4",
+			},
+			{
+				name:     "Nashville Bass Notes",
+				text:     "C/E G/B",
+				fromKey:  "C",
+				expected: "1/3 5/7",
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				got, err := TransposeToNashville(tt.text, tt.fromKey)
+				require.NoError(t, err)
+				assert.Equal(t, tt.expected, got)
+			})
+		}
+	})
+
+	t.Run("From Nashville", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			text     string
+			toKey    string
+			expected string
+		}{
+			{
+				name:     "Nashville to D Major",
+				text:     "1 5 6m 4",
+				toKey:    "D",
+				expected: "D A Bm G",
+			},
+			{
+				name:     "Nashville b7 to F Major",
+				text:     "1 4 b7 4",
+				toKey:    "F",
+				expected: "F Bb Eb Bb",
+			},
+			{
+				name:     "Nashville with Bass to G Major",
+				text:     "1/3 5/7",
+				toKey:    "G",
+				expected: "G/B D/F#",
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				got, err := TransposeFromNashville(tt.text, tt.toKey)
+				require.NoError(t, err)
+				assert.Equal(t, tt.expected, got)
+			})
+		}
+	})
+}
+
+func TestGuessKeyFromText_LogicalCorrectness(t *testing.T) {
+	tests := []struct {
+		name    string
+		text    string
+		wantKey string
+	}{
+		{
+			name:    "Guess G Major",
+			text:    "G C D Em",
+			wantKey: "G",
+		},
+		{
+			name:    "Guess F# Major",
+			text:    "F# B C#",
+			wantKey: "F#",
+		},
+		{
+			name:    "Guess Bb Major",
+			text:    "Bb Eb F",
+			wantKey: "Bb",
+		},
+		{
+			name:    "Guess Am (Minor key support)",
+			text:    "Am Dm Em",
+			wantKey: "C",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GuessKeyFromText(tt.text)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantKey, got.majorName)
+		})
+	}
+}
+
+func TestTranspose_PreserveFormatting(t *testing.T) {
+	text := `
+Verse 1:
+C          G
+Amazing grace, how sweet the sound
+Am               F
+That saved a wretch like me
+`
+	fromKey := "C"
+	toKey := "D"
+	expected := `
+Verse 1:
+D          A
+Amazing grace, how sweet the sound
+Bm               G
+That saved a wretch like me
+`
+	got, err := TransposeToKey(text, fromKey, toKey)
+	require.NoError(t, err)
+	assert.Equal(t, expected, got)
+}
+
+func TestUncoveredCases(t *testing.T) {
+	t.Run("Key.String()", func(t *testing.T) {
+		key, err := ParseKey("C")
+		require.NoError(t, err)
+		assert.Equal(t, "C", key.String())
+	})
+
+	t.Run("WithDelimSymbols", func(t *testing.T) {
+		text := "C|G;Am"
+		tokens := Tokenize(text, true, false, WithDelimSymbols([]string{"|", ";"}))
+		require.Len(t, tokens, 1)
+
+		chordCount := 0
+		for _, tok := range tokens[0] {
+			if tok.Chord != nil {
+				chordCount++
+			}
+		}
+		assert.Equal(t, 3, chordCount)
+	})
+
+	t.Run("Chord.GetKey() - Search in chromatic scales", func(t *testing.T) {
+		chord := &Chord{Root: "E#", Suffix: ""}
+		key, err := chord.GetKey()
+		assert.NoError(t, err)
+		assert.Equal(t, "C#", key.majorName)
+	})
+
+	t.Run("Chord.GetKey() - Invalid Chord", func(t *testing.T) {
+		chord := &Chord{Root: "Z", Suffix: ""}
+		_, err := chord.GetKey()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid chord")
+	})
+
+	t.Run("TransposeToKeyTokens - hasChords false", func(t *testing.T) {
+		tokens := [][]Token{{{Text: "Just text"}}}
+		_, err := TransposeToKeyTokens(tokens, "C", "D")
+		assert.ErrorIs(t, err, ErrNoChordsInText)
+	})
+
+	t.Run("TransposeToNashvilleTokens - hasChords false", func(t *testing.T) {
+		tokens := [][]Token{{{Text: "Just text"}}}
+		_, err := TransposeToNashvilleTokens(tokens, "C")
+		assert.ErrorIs(t, err, ErrNoChordsInText)
+	})
+
+	t.Run("TransposeFromNashvilleTokens - hasChords false", func(t *testing.T) {
+		tokens := [][]Token{{{Text: "Just text"}}}
+		_, err := TransposeFromNashvilleTokens(tokens, "C")
+		assert.ErrorIs(t, err, ErrNoChordsInText)
+	})
+
+	t.Run("TransposeFromNashville - Invalid Key", func(t *testing.T) {
+		_, err := TransposeFromNashville("1 4 5", "InvalidKey")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "a valid key must be provided")
+	})
+
+	t.Run("GuessKeyFromTokens - No Chords", func(t *testing.T) {
+		tokens := [][]Token{{{Text: "No chords here"}}}
+		_, err := guessKeyFromTokens(tokens)
+		assert.ErrorIs(t, err, ErrNoChordsInText)
+	})
+
+	t.Run("Nil option does not panic", func(t *testing.T) {
+		assert.NotPanics(t, func() {
+			got, err := TransposeToKey("C G Am F", "C", "D", nil)
+			require.NoError(t, err)
+			assert.Equal(t, "D A Bm G", got)
+		})
+	})
 }

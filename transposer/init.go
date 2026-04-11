@@ -58,9 +58,14 @@ var (
 )
 
 const (
-	nashvilleRootPattern      = `(?P<root>(b|#)?[1-7])`
-	nashvilleBassPattern      = `(\/(?P<bass>(b|#)?[1-7]))?`
-	nashvilleAddedTonePattern = `(([\.\+]|add)?(([b#])?\d+|sus\d*|aug)[\+-]?)`
+	// Canonical Nashville accidentals are b2, b3, #4, b6, and b7.
+	nashvilleCanonicalDegreePattern = `(?:[1-7]|b[2367]|#4)`
+	// Accept common enharmonic aliases on input and normalize them during parsing.
+	nashvilleDegreeAliasPattern = `(?:#(?:1|2|5|6)|b5)`
+	nashvilleDegreePattern      = `(?:` + nashvilleCanonicalDegreePattern + `|` + nashvilleDegreeAliasPattern + `)`
+	nashvilleRootPattern        = `(?P<root>` + nashvilleDegreePattern + `)`
+	nashvilleBassPattern        = `(\/(?P<bass>` + nashvilleDegreePattern + `))?`
+	nashvilleAddedTonePattern   = `(([\.\+]|add)?(([b#])?\d+|sus\d*|aug)[\+-]?)`
 )
 
 var nashvilleSuffixPattern = fmt.Sprintf(`(?P<suffix>\(?%s?%s*\)?)`, triadPattern, nashvilleAddedTonePattern)
@@ -73,43 +78,44 @@ var flatScale = []string{"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "
 var gFlatScale = []string{"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "Cb"}
 var cFlatScale = []string{"C", "Db", "D", "Eb", "Fb", "F", "Gb", "G", "Ab", "A", "Bb", "Cb"}
 
-var keys []Key
-var nameToKeyMap map[string]Key
-var rankToKeyMap map[int]Key
+var keys = []Key{
+	{"C", "Am", sharp, 0, sharpScale},
+	{"D", "Bm", sharp, 2, sharpScale},
+	{"E", "C#m", sharp, 4, sharpScale},
+	{"F", "Dm", flat, 5, flatScale},
+	{"G", "Em", sharp, 7, sharpScale},
+	{"A", "F#m", sharp, 9, sharpScale},
+	{"B", "G#m", sharp, 11, sharpScale},
+	{"Db", "Bbm", flat, 1, flatScale},
+	{"Eb", "Cm", flat, 3, flatScale},
+	{"Gb", "Ebm", flat, 6, gFlatScale},
+	{"Ab", "Fm", flat, 8, flatScale},
+	{"Bb", "Gm", flat, 10, flatScale},
+	{"Cb", "Abm", flat, 11, cFlatScale},
+	{"C#", "A#m", sharp, 1, cSharpScale},
+	{"D#", "", sharp, 3, sharpScale},
+	{"F#", "D#m", sharp, 6, fSharpScale},
+	{"G#", "", sharp, 8, sharpScale},
+}
 
-func init() {
-	keys = []Key{
-		{"C", "Am", sharp, 0, sharpScale},
-		{"D", "Bm", sharp, 2, sharpScale},
-		{"E", "C#m", sharp, 4, sharpScale},
-		{"F", "Dm", flat, 5, flatScale},
-		{"G", "Em", sharp, 7, sharpScale},
-		{"A", "F#m", sharp, 9, sharpScale},
-		{"B", "G#m", sharp, 11, sharpScale},
-		{"Db", "Bbm", flat, 1, flatScale},
-		{"Eb", "Cm", flat, 3, flatScale},
-		{"Gb", "Ebm", flat, 6, gFlatScale},
-		{"Ab", "Fm", flat, 8, flatScale},
-		{"Bb", "Gm", flat, 10, flatScale},
-		{"Cb", "Abm", flat, 11, cFlatScale},
-		{"C#", "A#m", sharp, 1, cSharpScale},
-		{"D#", "", sharp, 3, sharpScale},
-		{"F#", "D#m", sharp, 6, fSharpScale},
-		{"G#", "", sharp, 8, sharpScale},
-	}
-
-	nameToKeyMap = make(map[string]Key)
-	rankToKeyMap = make(map[int]Key)
-
+var nameToKeyMap = func() map[string]Key {
+	m := make(map[string]Key)
 	for _, key := range keys {
 		if key.majorName != "" {
-			nameToKeyMap[key.majorName] = key
+			m[key.majorName] = key
 		}
 
 		if key.relativeMinorName != "" {
-			nameToKeyMap[key.relativeMinorName] = key
+			m[key.relativeMinorName] = key
 		}
-
-		rankToKeyMap[key.rank] = key
 	}
-}
+	return m
+}()
+
+var rankToKeyMap = func() map[int]Key {
+	m := make(map[int]Key)
+	for _, key := range keys {
+		m[key.rank] = key
+	}
+	return m
+}()

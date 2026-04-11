@@ -6,6 +6,14 @@ import (
 	"strings"
 )
 
+var nashvilleDegreeAliases = map[string]string{
+	"#1": "b2",
+	"#2": "b3",
+	"b5": "#4",
+	"#5": "b6",
+	"#6": "b7",
+}
+
 type Chord struct {
 	Root   string
 	Suffix string
@@ -83,9 +91,9 @@ func ParseNashvilleChord(token string) (*Chord, error) {
 	matches := nashvilleChordRegex.FindStringSubmatch(token)
 
 	return &Chord{
-		Root:   matches[nashvilleChordRegex.SubexpIndex("root")],
+		Root:   canonicalizeNashvilleDegree(matches[nashvilleChordRegex.SubexpIndex("root")]),
 		Suffix: matches[nashvilleChordRegex.SubexpIndex("suffix")],
-		Bass:   matches[nashvilleChordRegex.SubexpIndex("bass")],
+		Bass:   canonicalizeNashvilleDegree(matches[nashvilleChordRegex.SubexpIndex("bass")]),
 	}, nil
 }
 
@@ -95,4 +103,11 @@ func IsChord(token string) bool {
 
 func IsNashvilleChord(token string) bool {
 	return nashvilleChordRegex.MatchString(token)
+}
+
+func canonicalizeNashvilleDegree(degree string) string {
+	if canonical, ok := nashvilleDegreeAliases[degree]; ok {
+		return canonical
+	}
+	return degree
 }

@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-
-	"github.com/adam-lavrik/go-imath/ix"
 )
 
 var ErrNoChordsInText = errors.New("text has no chords")
@@ -16,10 +14,10 @@ const defaultDelimPattern = `(?:\s|[^\p{L}\p{N}#/])+`
 var defaultDelimRe = regexp.MustCompile(defaultDelimPattern)
 
 var sharpIntervalToNashville = map[int]string{
-	0: "1", 1: "#1", 2: "2", 3: "#2", 4: "3", 5: "4", 6: "#4", 7: "5", 8: "#5", 9: "6", 10: "#6", 11: "7",
+	0: "1", 1: "b2", 2: "2", 3: "b3", 4: "3", 5: "4", 6: "#4", 7: "5", 8: "b6", 9: "6", 10: "b7", 11: "7",
 }
 var flatIntervalToNashville = map[int]string{
-	0: "1", 1: "b2", 2: "2", 3: "b3", 4: "3", 5: "4", 6: "b5", 7: "5", 8: "b6", 9: "6", 10: "b7", 11: "7",
+	0: "1", 1: "b2", 2: "2", 3: "b3", 4: "3", 5: "4", 6: "#4", 7: "5", 8: "b6", 9: "6", 10: "b7", 11: "7",
 }
 
 type TransposeOpts struct {
@@ -27,33 +25,42 @@ type TransposeOpts struct {
 	ChordRatioThreshold float64
 }
 
-func TransposeToKey(text string, fromKey string, toKey string, opts ...*TransposeOpts) (string, error) {
-	var opt TransposeOpts
-	if len(opts) > 0 && opts[0] != nil {
-		opt = *opts[0]
+type Option func(*TransposeOpts)
+
+func WithDelimSymbols(symbols []string) Option {
+	return func(o *TransposeOpts) {
+		o.DelimSymbols = symbols
 	}
+}
+
+func WithChordRatioThreshold(threshold float64) Option {
+	return func(o *TransposeOpts) {
+		o.ChordRatioThreshold = threshold
+	}
+}
+
+func parseOpts(opts ...Option) TransposeOpts {
+	var opt TransposeOpts
+	for _, o := range opts {
+		if o == nil {
+			continue
+		}
+		o(&opt)
+	}
+	return opt
+}
+
+func TransposeToKey(text string, fromKey string, toKey string, opts ...Option) (string, error) {
+	opt := parseOpts(opts...)
 
 	tokens := tokenize(text, true, false, buildDelimRe(opt.DelimSymbols), opt.ChordRatioThreshold)
 	return TransposeToKeyTokens(tokens, fromKey, toKey)
 }
 
 func TransposeToKeyTokens(tokens [][]Token, fromKey string, toKey string) (string, error) {
-
-	hasChords := false
-	for _, line := range tokens {
-		for _, token := range line {
-			if token.Chord != nil {
-				hasChords = true
-				break
-			}
-		}
-	}
-
-	if !hasChords {
+	if !hasChords(tokens) {
 		return "", ErrNoChordsInText
 	}
-
-	var transposedLines [][]Token
 
 	parsedFromKey, err := ParseKey(fromKey)
 	if err != nil {
@@ -68,48 +75,22 @@ func TransposeToKeyTokens(tokens [][]Token, fromKey string, toKey string) (strin
 		return "", err
 	}
 	transpositionMap := createTranspositionMap(parsedFromKey, parsedToKey)
-	transposedLines = transposeTokens(tokens, transpositionMap)
+	transposedLines := transposeTokens(tokens, transpositionMap)
 
-	var resultText string
-	for i, line := range transposedLines {
-		for _, token := range line {
-			resultText += token.String()
-		}
-
-		if i != len(transposedLines)-1 {
-			resultText += "\n"
-		}
-	}
-	return resultText, nil
+	return renderTokens(transposedLines), nil
 }
 
-func TransposeToNashville(text string, fromKey string, opts ...*TransposeOpts) (string, error) {
-	var opt TransposeOpts
-	if len(opts) > 0 && opts[0] != nil {
-		opt = *opts[0]
-	}
+func TransposeToNashville(text string, fromKey string, opts ...Option) (string, error) {
+	opt := parseOpts(opts...)
 
 	tokens := tokenize(text, true, false, buildDelimRe(opt.DelimSymbols), opt.ChordRatioThreshold)
 	return TransposeToNashvilleTokens(tokens, fromKey)
 }
 
 func TransposeToNashvilleTokens(tokens [][]Token, fromKey string) (string, error) {
-
-	hasChords := false
-	for _, line := range tokens {
-		for _, token := range line {
-			if token.Chord != nil {
-				hasChords = true
-				break
-			}
-		}
-	}
-
-	if !hasChords {
+	if !hasChords(tokens) {
 		return "", ErrNoChordsInText
 	}
-
-	var transposedLines [][]Token
 
 	parsedFromKey, err := ParseKey(fromKey)
 	if err != nil {
@@ -119,84 +100,42 @@ func TransposeToNashvilleTokens(tokens [][]Token, fromKey string) (string, error
 		}
 	}
 	nashvilleMap := createNashvilleMap(parsedFromKey)
-	transposedLines = transposeTokens(tokens, nashvilleMap)
+	transposedLines := transposeTokens(tokens, nashvilleMap)
 
-	var resultText string
-	for i, line := range transposedLines {
-		for _, token := range line {
-			resultText += token.String()
-		}
-
-		if i != len(transposedLines)-1 {
-			resultText += "\n"
-		}
-	}
-	return resultText, nil
+	return renderTokens(transposedLines), nil
 }
 
-func TransposeFromNashville(text string, toKey string, opts ...*TransposeOpts) (string, error) {
-	var opt TransposeOpts
-	if len(opts) > 0 && opts[0] != nil {
-		opt = *opts[0]
-	}
+func TransposeFromNashville(text string, toKey string, opts ...Option) (string, error) {
+	opt := parseOpts(opts...)
 
 	tokens := tokenize(text, false, true, buildDelimRe(opt.DelimSymbols), opt.ChordRatioThreshold)
 	return TransposeFromNashvilleTokens(tokens, toKey)
 }
 
 func TransposeFromNashvilleTokens(tokens [][]Token, toKey string) (string, error) {
-
-	hasChords := false
-	for _, line := range tokens {
-		for _, token := range line {
-			if token.Chord != nil {
-				hasChords = true
-				break
-			}
-		}
-	}
-
-	if !hasChords {
+	if !hasChords(tokens) {
 		return "", ErrNoChordsInText
 	}
-
-	var transposedLines [][]Token
 
 	parsedToKey, err := ParseKey(toKey)
 	if err != nil {
 		return "", fmt.Errorf("a valid key must be provided to transpose from Nashville system: %w", err)
 	}
 	chordMap := createChordMap(parsedToKey)
-	transposedLines = transposeTokens(tokens, chordMap)
+	transposedLines := transposeTokens(tokens, chordMap)
 
-	var resultText string
-	for i, line := range transposedLines {
-		for _, token := range line {
-			resultText += token.String()
-		}
-
-		if i != len(transposedLines)-1 {
-			resultText += "\n"
-		}
-	}
-	return resultText, nil
+	return renderTokens(transposedLines), nil
 }
 
-func GuessKeyFromText(text string, opts ...*TransposeOpts) (Key, error) {
-	var opt TransposeOpts
-	if len(opts) > 0 && opts[0] != nil {
-		opt = *opts[0]
-	}
+func GuessKeyFromText(text string, opts ...Option) (Key, error) {
+	opt := parseOpts(opts...)
 
 	tokens := tokenize(text, true, false, buildDelimRe(opt.DelimSymbols), opt.ChordRatioThreshold)
 	return guessKeyFromTokens(tokens)
 }
 
-func Tokenize(text string, parseDefault, parseNashville bool, opts ...*TransposeOpts) [][]Token {
-	var opt TransposeOpts
-	if len(opts) > 0 && opts[0] != nil {
-		opt = *opts[0]
-	}
+func Tokenize(text string, parseDefault, parseNashville bool, opts ...Option) [][]Token {
+	opt := parseOpts(opts...)
 
 	return tokenize(text, parseDefault, parseNashville, buildDelimRe(opt.DelimSymbols), opt.ChordRatioThreshold)
 }
@@ -216,15 +155,30 @@ func buildDelimRe(symbols []string) *regexp.Regexp {
 	return regexp.MustCompile(pattern)
 }
 
-//// TODO
-//func TransposeUp(text string, fromKey Key, ToKey Key) (string, error) {
-//	return "", nil
-//}
-//
-//// TODO
-//func TransposeDown(text string, fromKey Key, ToKey Key) (string, error) {
-//	return "", nil
-//}
+func hasChords(tokens [][]Token) bool {
+	for _, line := range tokens {
+		for _, token := range line {
+			if token.Chord != nil {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func renderTokens(transposedLines [][]Token) string {
+	var sb strings.Builder
+	for i, line := range transposedLines {
+		for _, token := range line {
+			sb.WriteString(token.String())
+		}
+
+		if i != len(transposedLines)-1 {
+			sb.WriteByte('\n')
+		}
+	}
+	return sb.String()
+}
 
 func guessKeyFromTokens(tokens [][]Token) (Key, error) {
 	for _, line := range tokens {
@@ -239,10 +193,10 @@ func guessKeyFromTokens(tokens [][]Token) (Key, error) {
 }
 
 func transposeTokens(tokens [][]Token, transpositionMap map[string]string) [][]Token {
-	result := make([][]Token, 0)
+	result := make([][]Token, 0, len(tokens))
 
 	for _, line := range tokens {
-		accumulator := make([]Token, 0)
+		accumulator := make([]Token, 0, len(line))
 		spaceDebt := 0
 
 		for i, token := range line {
@@ -271,7 +225,7 @@ func transposeTokens(tokens [][]Token, transpositionMap map[string]string) [][]T
 				if spaceDebt > 0 {
 					re := regexp.MustCompile(`\S|$`)
 					numSpaces := re.FindStringIndex(token.Text)[0]
-					spacesToTake := ix.Mins(spaceDebt, numSpaces, len([]rune(token.Text))-1)
+					spacesToTake := min(spaceDebt, numSpaces, len([]rune(token.Text))-1)
 
 					if spacesToTake < numSpaces {
 						truncatedToken := token.Text[spacesToTake:len([]rune(token.Text))]
@@ -347,7 +301,7 @@ func createChordMap(toKey Key) map[string]string {
 
 func tokenize(text string, parseDefault, parseNashville bool, delimRe *regexp.Regexp, chordRatioThreshold float64) [][]Token {
 	lines := strings.Split(text, "\n")
-	newText := make([][]Token, 0)
+	newText := make([][]Token, 0, len(lines))
 
 	var offset int64 = 0
 	for _, line := range lines {
