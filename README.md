@@ -144,7 +144,6 @@ The parser handles:
 - Minor spellings such as `m`, `min`, and `minor`
 - Bass-note slash chords such as `D/F#` and `Am/C`
 - German `H` notation
-- Cyrillic chord roots supported by the parser, including forms such as `Вm` and `С#m`
 
 ### API overview
 

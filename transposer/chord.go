@@ -46,11 +46,13 @@ func (c *Chord) MinorSuffix() string {
 }
 
 func (c *Chord) GetKey() (Key, error) {
+	root := canonicalizeKeyRoot(c.Root)
+
 	var keyName string
 	if c.IsMinor() {
-		keyName = c.Root + "m"
+		keyName = root + "m"
 	} else {
-		keyName = c.Root
+		keyName = root
 	}
 
 	foundKey, ok := nameToKeyMap[keyName]
@@ -60,7 +62,7 @@ func (c *Chord) GetKey() (Key, error) {
 
 	for _, key := range keys {
 		for _, scale := range key.chromaticScale {
-			if scale == c.Root {
+			if scale == root {
 				return key, nil
 			}
 		}
@@ -110,4 +112,11 @@ func canonicalizeNashvilleDegree(degree string) string {
 		return canonical
 	}
 	return degree
+}
+
+func canonicalizeKeyRoot(root string) string {
+	if canonical, ok := keyRootAliases[root]; ok {
+		return canonical
+	}
+	return root
 }

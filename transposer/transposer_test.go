@@ -110,45 +110,33 @@ func TestTransposeToKey_H(t *testing.T) {
 	assert.Equal(t, "| C | G | Am  | F |", transposedText)
 }
 
-func TestTransposeToKey_Cyrillic_C(t *testing.T) {
-	text := `| E | H | С#m | A |`
-
-	transposedText, err := TransposeToKey(text, "E", "C")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	t.Logf("before: %s\nafter: %s", text, transposedText)
-	assert.Equal(t, "| C | G | Am  | F |", transposedText)
-}
-
-func TestTransposeToKey_Cyrillic_Song(t *testing.T) {
+func TestTransposeToKey_MixedLanguageLyrics_LatinChords(t *testing.T) {
 	text := `КУПЛЕТ 1:
-G          Вm          D           A
+G          Bm          D           A
 О любви Тебе поют сердца, достоин Ты
-    G           Вm             D         A
+    G           Bm             D         A
 И вся хвала звучит лишь для Тебя, Божий Сын
 
 ПРИПЕВ:
-Еm          Вm         D       A
+Em          Bm         D       A
 Иисус, прекрасен Ты, славный, нет Тебе подобных
-Еm          Вm         D       A
+Em          Bm         D       A
 Иисус, прекрасен Ты, славный, нет Тебе подобных
 
 КУПЛЕТ 2:
-  G          Вm             D             A
+  G          Bm             D             A
 Правишь Ты Один над миром всем, лишь Ты Один
-       G       Вm          D         A
+       G       Bm          D         A
 Пусть небеса поют хвалу Тебе, Божий Сын
 
 ПРИПЕВ
 
 МОСТ: x2
-G                     Вm
+G                     Bm
 Превознесем, превознесем
    D            A
 Мы Имя Твое, мы Имя Твое
-G                     Вm
+G                     Bm
 Превознесем, превознесем
    D            A
 Мы Имя Твое, мы Имя Твое
@@ -156,7 +144,7 @@ G                     Вm
 ПРИПЕВ
 
 ПРОИГРЫШ:
-| Еm | Вm | D | A | x2
+| Em | Bm | D | A | x2
 
 МОСТ -> ПРИПЕВ
 `
@@ -230,6 +218,7 @@ func TestParseChord_Basic(t *testing.T) {
 func TestParseChord_Invalid(t *testing.T) {
 	bad := []string{
 		"", "Rubbish", "C##", "Qm", "1/5/7", "C///G",
+		"С", "С#m", "В", "Вm", "Еm", "А", "Н",
 	}
 	for _, in := range bad {
 		ch, err := ParseChord(in)
@@ -816,10 +805,9 @@ func TestSingleChord_GermanLetter_WithinKeyContext(t *testing.T) {
 	assert.Equal(t, "G", got)
 }
 
-func TestSingleChord_CyrillicLetter_Root(t *testing.T) {
-	// Cyrillic 'С' should be treated as Latin 'C'
-	got := transposeOne(t, "С#m", "E", "C") // 'С' here is Cyrillic
-	assert.Equal(t, "Am", got)
+func TestSingleChord_CyrillicLetterRoot_IsNotAChord(t *testing.T) {
+	_, err := TransposeToKey("| С#m |", "E", "C")
+	assert.ErrorIs(t, err, ErrNoChordsInText)
 }
 
 func TestSingleChord_KeyToKey_ExtensionsAndAlterations(t *testing.T) {
@@ -1125,11 +1113,11 @@ func TestTransposeToKey_LogicalCorrectness(t *testing.T) {
 			expected: "C G  Am  F",
 		},
 		{
-			name:     "Cyrillic Support: С (Cyrillic) to D",
+			name:     "Cyrillic root remains text",
 			text:     "С G Am F", // С is Cyrillic
 			fromKey:  "C",
 			toKey:    "D",
-			expected: "D A Bm G",
+			expected: "С A Bm G",
 		},
 	}
 
@@ -1248,6 +1236,16 @@ func TestGuessKeyFromText_LogicalCorrectness(t *testing.T) {
 			text:    "Am Dm Em",
 			wantKey: "C",
 		},
+		{
+			name:    "Guess B Major from German H",
+			text:    "H",
+			wantKey: "B",
+		},
+		{
+			name:    "Guess D Major from German H minor",
+			text:    "Hm",
+			wantKey: "D",
+		},
 	}
 
 	for _, tt := range tests {
@@ -1255,6 +1253,25 @@ func TestGuessKeyFromText_LogicalCorrectness(t *testing.T) {
 			got, err := GuessKeyFromText(tt.text)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantKey, got.majorName)
+		})
+	}
+}
+
+func TestGuessKeyFromText_CyrillicRootsAreNotChords(t *testing.T) {
+	tests := []struct {
+		name string
+		text string
+	}{
+		{name: "Cyrillic Ve in lyrics", text: "В усьому вірний"},
+		{name: "Single Cyrillic Ve", text: "В"},
+		{name: "Cyrillic Ve minor", text: "Вm"},
+		{name: "Cyrillic En", text: "Н"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := GuessKeyFromText(tt.text)
+			assert.ErrorIs(t, err, ErrNoChordsInText)
 		})
 	}
 }

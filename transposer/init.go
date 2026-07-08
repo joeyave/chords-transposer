@@ -28,26 +28,20 @@ var chordRanks = map[string]int{
 	"Cb": 11,
 	"B":  11,
 	"H":  11,
+}
 
-	"В#": 0,
-	"С":  0,
-	"С#": 1,
-	"Еb": 3,
-	"Е":  4,
-	"Е#": 5,
-	"Аb": 8,
-	"А":  9,
-	"А#": 10,
-	"Вb": 10,
-	"Сb": 11,
-	"В":  11, // Cyrillic.
+// To support additional root spellings, add them in all places that need the behavior:
+// rootPattern/bassPattern so the parser accepts them, chordRanks so transposition works,
+// and keyRootAliases when a spelling should resolve to a canonical key root for GetKey.
+var keyRootAliases = map[string]string{
+	"H": "B",
 }
 
 const (
-	rootPattern      = `(?P<root>[A-HСЕАВН](#|b)?)`
+	rootPattern      = `(?P<root>[A-H](#|b)?)`
 	addedTonePattern = `(([/\.\+]|add)?(([b#])?\d+|sus\d*|aug)[\+-]?)`
 	triadPattern     = `(M|maj|major|m|min|minor|dim|sus|dom|aug|\+|-)`
-	bassPattern      = `(\/(?P<bass>[A-HСЕАВН](#|b)?))?`
+	bassPattern      = `(\/(?P<bass>[A-H](#|b)?))?`
 )
 
 var minorSuffixRegex = regexp.MustCompile(`^(?P<minor>minor|min|m)`)
@@ -109,13 +103,6 @@ var nameToKeyMap = func() map[string]Key {
 			m[key.relativeMinorName] = key
 		}
 	}
-	return m
-}()
 
-var rankToKeyMap = func() map[int]Key {
-	m := make(map[int]Key)
-	for _, key := range keys {
-		m[key.rank] = key
-	}
 	return m
 }()
